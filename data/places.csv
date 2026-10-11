@@ -1,0 +1,51 @@
+﻿placeId,name,category,latitude,longitude
+P001,HUIT,university,10.806527,106.628862
+P002,Techcombank,atm,10.7989161,106.641737
+P003,Đồng Tiến,bakery,10.7928128,106.6418924
+P004,Vietcombank,bank,10.8152087,106.6238639
+P005,Cà Phê 77,cafe,10.7920273,106.6444373
+P006,Phòng khám Phụ sản 315,clinic,10.79218,106.6427491
+P007,Xưởng May Quần Áo Khánh Hợp,clothes,10.7974189,106.6396113
+P008,Trung tâm Dạy nghề quận Tân Bình,college,10.80103815,106.6390024731769
+P009,WinMart+,convenience,10.8120963,106.6215418
+P010,KFC,fast_food,10.8073821,106.6342038
+P011,CLB GYM THY SPORT,fitness_centre,10.7994678,106.6238436
+P012,Cửa hàng Xăng dầu Petrolimex Số 45,fuel,10.8096026,106.6336074
+P013,Bệnh Viện Đa Khoa Mỹ Đức,hospital,10.7999684,106.6415956
+P014,Nhat Anh hotel,hotel,10.8110328,106.6199531
+P015,Trường Mầm non 13,kindergarten,10.8016986,106.64295386575316
+P016,Chợ Võ Thành Trang,marketplace,10.80042305,106.63784379867327
+P017,Trung tâm Bảo hành Samsung,mobile_phone,10.8036479,106.6377359
+P018,Công viên Bàu Cát,park,10.791198399999999,106.64296564760221
+P019,Nhà đậu xe Aeon Mall Tân Phú Celadon;Commercial_AEONMallTanPhu Storie 4,parking,10.8014072,106.61715893357459
+P020,Nhà Thuốc Tây,pharmacy,10.7969265,106.641148
+P021,Công an quận Tân Phú,police,10.79035575,106.63949423330105
+P022,Mì Quảng Bà Bốn,restaurant,10.7912767,106.64564
+P023,Trường Ngoại Ngữ Quốc Tế Thiên Hà Xanh,school,10.8072882,106.6237854
+P024,Khu Thể Thao - Tấn Trường,sports_centre,10.8098125,106.6457369
+P025,Siêu thị GO,supermarket,10.806804,106.634147
+P026,Techcombank,atm,10.7992276,106.637518
+P027,Agribank,bank,10.8025081,106.6415059
+P028,Cà Phê Memory,cafe,10.7988787,106.6332122
+P029,Trung tâm Y tế khu vực Tân Bình,clinic,10.8006732,106.64013413415137
+P030,Cừa Hàng Thời Trang An Phước,clothes,10.8023087,106.6180586
+P031,WinMart+,convenience,10.7905367,106.6468967
+P032,Circle K,fast_food,10.7970378,106.6238513
+P033,Trung tâm VH - TDTT Quận Tân Phú,fitness_centre,10.8104797,106.62645888327299
+P034,Cửa Hàng Xăng Dầu Số 23 Comeco,fuel,10.7998682,106.6198471
+P035,Yoga trị liệu l Ci Yoga Therapy CN Celadon,hospital,10.8054227,106.6151358
+P036,Khách Sạn Minh Tâm,hotel,10.8021474,106.6471412
+P037,Mầm non Bàu Cát,kindergarten,10.792859100000001,106.64343879403611
+P038,Chợ Sơn Kỳ,marketplace,10.80593855,106.62258339778373
+P039,P2T's Corner,mobile_phone,10.7943935,106.63053
+P040,Công viên Sơn Kỳ,park,10.80658425,106.6103094910199
+P041,A,parking,10.80172465,106.61860944594797
+P042,Công an phường Tân Sơn Nhì,police,10.80307615,106.62222758983175
+P043,Pizza Hut,restaurant,10.8009329,106.6407219
+P044,Xuất Khẩu Lao Động Esuhai,school,10.8015515,106.6420298
+P045,Sân bóng đá Sport Plus WeSport,sports_centre,10.8049534,106.61223777472628
+P046,Cửa Hàng Cung Cấp Đồ Hóa Trang Hoa Chí Tín,supermarket,10.7957444,106.6271801
+P047,Techcombank,atm,10.801881,106.6414395
+P048,Vikki Bank,bank,10.7933068,106.6366522
+P049,Cà Phê Royaltea,cafe,10.7901265,106.6406975
+P050,Trạm y tế phường Tân Sơn Nhì,clinic,10.795188750000001,106.63183745972287

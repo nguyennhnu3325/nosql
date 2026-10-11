@@ -1,0 +1,29 @@
+{% extends 'base.html' %}{% block title %}Quản lý địa điểm — Urban Route{% endblock %}{% block content %}
+<h1>Quản lý địa điểm</h1><p class="hint">Quản lý các điểm đến và kết nối của chúng với mạng lưới giao thông.</p>
+<p id="status" role="status" aria-live="polite"></p>
+<div class="metrics" id="place-metrics"></div><div class="layout"><section class="card"><h2 id="form-title">Thêm địa điểm</h2><form id="place-form">
+<label for="name">Tên địa điểm</label><input id="name" name="name" required maxlength="200">
+<label for="category">Loại địa điểm</label><input id="category" name="category" required maxlength="200" placeholder="cafe, bank, university...">
+<label for="latitude">Vĩ độ</label><input id="latitude" name="latitude" type="number" step="any" min="-90" max="90" required placeholder="10.806527">
+<label for="longitude">Kinh độ</label><input id="longitude" name="longitude" type="number" step="any" min="-180" max="180" required placeholder="106.628862">
+<p class="hint">Mã địa điểm được tạo tự động. Vị trí được kết nối tới nút giao gần nhất khi lưu.</p>
+<div class="actions"><button id="save" type="submit">Thêm địa điểm</button><button id="cancel" class="secondary" type="button">Làm mới</button></div>
+</form></section><section class="card"><h2>Danh sách địa điểm <small id="count"></small></h2><label for="filter">Tìm theo tên, loại hoặc mã</label><input id="filter" type="search" placeholder="Tìm địa điểm...">
+<div class="scroll"><table><thead><tr><th>Địa điểm</th><th>Tọa độ</th><th>Junction / khoảng cách</th><th>Thao tác</th></tr></thead><tbody id="places"></tbody></table></div></section></div>
+{% endblock %}{% block scripts %}<script>
+
+const form=document.getElementById('place-form'), rows=document.getElementById('places'), statusBox=document.getElementById('status');
+let places=[], editing=null, busy=false;
+function setBusy(value){busy=value;form.querySelectorAll('input,button').forEach(e=>e.disabled=value);rows.querySelectorAll('button').forEach(e=>e.disabled=value);}
+function reset(){editing=null;form.reset();document.getElementById('form-title').textContent='Thêm địa điểm';document.getElementById('save').textContent='Thêm địa điểm';}
+function render(){rows.replaceChildren();const term=document.getElementById('filter').value.toLocaleLowerCase('vi');const filtered=places.filter(p=>[p.name,p.category,p.placeId].some(v=>String(v||'').toLocaleLowerCase('vi').includes(term)));document.getElementById('count').textContent='('+filtered.length+'/'+places.length+')';
+if(!filtered.length){const tr=rows.insertRow();const cell=tr.insertCell();cell.colSpan=4;cell.textContent='Không có địa điểm phù hợp.';return;}
+for(const p of filtered){const tr=rows.insertRow();const name=tr.insertCell();name.textContent=p.name||'(Chưa có tên)';const small=document.createElement('small');small.textContent=(p.category||'')+' · '+p.placeId;name.append(small);tr.insertCell().textContent=p.latitude+', '+p.longitude;tr.insertCell().textContent=p.junctionId==null?'Chưa liên kết':p.junctionId+' / '+Number(p.accessDistanceM||0).toFixed(2)+' m';const actions=tr.insertCell();actions.className='row-actions';
+const edit=document.createElement('button');edit.textContent='Sửa';edit.className='secondary';edit.disabled=busy;edit.onclick=()=>{editing=p.placeId;for(const key of ['name','category','latitude','longitude'])form.elements[key].value=p[key]??'';document.getElementById('form-title').textContent='Sửa địa điểm';document.getElementById('save').textContent='Lưu thay đổi';form.elements.name.focus();message('Đang sửa: '+p.name);};
+const del=document.createElement('button');del.textContent='Xóa';del.className='danger';del.disabled=busy;del.onclick=()=>remove(p);actions.append(edit,del);}}
+async function load(){places=await api('/api/admin/places');renderMetrics('place-metrics',[['Tổng địa điểm',places.length],['Nhóm địa điểm',new Set(places.map(p=>p.category).filter(Boolean)).size]]);render();}
+form.addEventListener('submit',async event=>{event.preventDefault();if(busy)return;setBusy(true);const wasEditing=editing;try{const payload={name:form.elements.name.value,category:form.elements.category.value,latitude:Number(form.elements.latitude.value),longitude:Number(form.elements.longitude.value)};const p=await api('/api/admin/places'+(editing?'/'+encodeURIComponent(editing):''),{method:editing?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});reset();message((wasEditing?'Đã cập nhật':'Đã thêm')+' '+p.name+' — Junction '+p.junctionId+', '+p.accessDistanceM+' m.');try{await load();}catch(error){message('Đã lưu địa điểm; chưa tải lại được danh sách: '+error.message,true);}}catch(error){message(error.message,true);}finally{setBusy(false);}});
+async function remove(p){if(busy||!confirm('Xóa địa điểm “'+p.name+'” và các liên kết của địa điểm này?'))return;setBusy(true);try{await api('/api/admin/places/'+encodeURIComponent(p.placeId),{method:'DELETE'});if(editing===p.placeId)reset();message('Đã xóa '+p.name+'.');try{await load();}catch(error){message('Đã xóa địa điểm; chưa tải lại được danh sách: '+error.message,true);}}catch(error){message(error.message,true);}finally{setBusy(false);}}
+document.getElementById('cancel').onclick=()=>{reset();message('');};document.getElementById('filter').addEventListener('input',render);message('Đang tải danh sách...');load().then(()=>message('')).catch(error=>message(error.message,true));
+
+</script>{% endblock %}

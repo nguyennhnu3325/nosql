@@ -1,0 +1,13 @@
+{% macro icon(name) -%}{% set paths = {
+'route':'<circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h9a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8h7"/>',
+'network':'<circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M11 7 6 16M13 7l5 9M7 18h10"/>',
+'chart':'<path d="M4 4v16h16M8 15v-4M13 15V7M18 15v-7"/>',
+'pin':'<path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/>',
+'users':'<circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M21 20v-2a6 6 0 0 0-4-5"/>',
+'data':'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 4 16 4 16 0V5M4 12v7c0 4 16 4 16 0v-7"/>',
+'logout':'<path d="M9 4H4v16h5M13 8l4 4-4 4M8 12h13"/>',
+'menu':'<path d="M4 6h16M4 12h16M4 18h16"/>',
+'arrow':'<path d="m9 5 7 7-7 7"/>',
+'shield':'<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/>',
+'info':'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.1"/>'
+} %}<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">{{ paths.get(name, paths.info)|safe }}</svg>{%- endmacro %}
