@@ -76,3 +76,17 @@ Tổng khoảng cách gồm ACCESS_TO của điểm đi + chiều dài ROAD + AC
 API `POST /api/route` nhận `{ "startId": "P001", "endId": "P002", "alternativeCount": 2 }`. `alternativeCount` nhận 0–2 và mặc định 0 để giữ tương thích với client cũ. Kết quả có `routes` chứa tuyến Dijkstra trước, sau đó các tuyến thay thế; các trường tuyến ngắn nhất ở cấp ngoài vẫn được giữ.
 
 Kiểm thử riêng GDS: `python tests/routing_smoke.py`. Script tạo dữ liệu bằng nhãn riêng (không mang nhãn Junction của ứng dụng), xác minh Dijkstra/Yen và geometry theo trọng số, rồi xóa dữ liệu và projection thử trong `finally`. Tài liệu thuật toán: [Dijkstra](https://neo4j.com/docs/graph-data-science/current/algorithms/dijkstra-source-target/), [Yen](https://neo4j.com/docs/graph-data-science/current/algorithms/yens/).
+
+
+## Các màn hình quản trị
+
+- **Khám phá:** tìm tuyến Dijkstra/Yen, nút xem tên đường theo thứ tự; xem Junction, ROAD, Place, ACCESS_TO bằng bản đồ, bảng và graph lân cận 2 bước (tối đa 120 node). Tìm theo mã nghiệp vụ, elementId hoặc tên.
+- **Phân tích:** tổng số bốn loại phần tử, trạng thái roadGraph/GDS, highway, thuộc tính oneway và số ROAD có chiều ngược, khoảng cách ACCESS_TO, top 10 Place xa Junction nhất và test Dijkstra. Mỗi ROAD có hướng được đếm riêng; không đồng nhất việc thiếu cạnh ngược với thuộc tính oneway.
+- **Địa điểm / Mạng lưới / Người dùng:** bảng 10 dòng mỗi trang, tìm kiếm, bộ lọc, popup xem/thêm/sửa và icon xóa. Người dùng có role admin/user, trạng thái hoạt động/khóa, thay hoặc reset mật khẩu (mật khẩu reset được hiển thị một lần).
+- **Import/export riêng:** nút JSON trên bảng Place, Junction, ROAD; dùng mẫu export của đúng mục. Import gộp theo ID, kiểm tra toàn bộ tệp và ghi trong một transaction.
+- **Phạm vi Place:** khung min/max tọa độ các Junction hiện có; chặn Place mới hoặc di chuyển ra ngoài. Place lịch sử đã ngoài vùng được giữ khi không đổi tọa độ; restore bản cũ bảo toàn tọa độ lịch sử. Ngưỡng cảnh báo khoảng cách mặc định 500 m, chỉnh ở Cấu hình (1–10.000 m).
+- **Dữ liệu & sao lưu:** export/import giao thông và các bản sao lưu giao thông cũ vẫn được hỗ trợ. Bản sao lưu CSDL mới đặt tại `backups/database`, chứa toàn bộ node/relationship/thuộc tính, gồm tài khoản và cấu hình ứng dụng. Đây là sao lưu logic JSON, không phải Neo4j dump; không chứa index/constraint, GraphML hoặc projection GDS. Phục hồi giữ schema hiện tại, yêu cầu có admin hiện tại trong bản sao lưu, tự lưu bản trước thay đổi và vô hiệu các phiên đăng nhập cũ.
+- **Hệ thống:** trạng thái kết nối Neo4j, GDS, roadGraph; cấu hình ngưỡng ACCESS_TO.
+- **Tài khoản:** cập nhật tên hiển thị, đổi mật khẩu bằng mật khẩu hiện tại và đăng xuất.
+
+Kiểm tra: `python -m unittest discover -s tests -p "test_*.py"`. Tích hợp Neo4j: `python tests/neo4j_smoke.py` (mọi thay đổi DB được rollback).

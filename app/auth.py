@@ -272,7 +272,7 @@ def register_auth(app, driver, database):
 
     @auth.get('/admin/users')
     def users_page():
-        return render_template('users.html')
+        return render_template('manage.html', kind='users')
 
     @auth.get('/api/admin/users')
     def users_list():

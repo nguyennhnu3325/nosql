@@ -1,0 +1,8 @@
+{
+  "places": 150,
+  "access": 150,
+  "totalJunctions": 3355,
+  "totalRoads": 8124,
+  "totalPlaces": 203,
+  "backup": "D:\\Nhu\\HK7\\NoSQL\\Neo4jRouting\\backups\\tan_phu_20261013T111058Z"
+}

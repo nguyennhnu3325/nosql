@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 from flask import Flask
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
-from place_admin import PlaceError, register_place_admin, save_place, validate_place
+from place_admin import PlaceError, register_place_admin, save_place, validate_place, check_place_bounds
 
 
 class PlaceAdminTests(unittest.TestCase):
@@ -52,6 +52,7 @@ class PlaceAdminTests(unittest.TestCase):
     def test_update_returns_new_access_distance(self):
         tx = MagicMock()
         tx.run.return_value.single.side_effect = [
+            {"south": 10.7, "north": 10.9, "west": 106.5, "east": 106.7},
             {"placeId": "P_test"},
             {"nodeId": "junction-node", "distance": 12.345},
             {**self.values, "placeId": "P_test", "junctionId": "J2", "accessDistanceM": 12.35},
@@ -59,6 +60,19 @@ class PlaceAdminTests(unittest.TestCase):
         result = save_place(tx, "P_test", self.values, False)
         self.assertEqual(result["junctionId"], "J2")
         self.assertEqual(tx.run.call_args.kwargs["distance"], 12.35)
+
+    def test_outside_network_is_rejected_before_mutation(self):
+        tx = MagicMock()
+        tx.run.return_value.single.return_value = dict(south=10.7,north=10.9,west=106.5,east=106.7)
+        for coordinate in ({'latitude':10.6},{'latitude':11},{'longitude':106.4},{'longitude':107}):
+            with self.subTest(coordinate=coordinate), self.assertRaises(PlaceError):
+                save_place(tx,'outside',{**self.values,**coordinate},True)
+        self.assertTrue(all('CREATE' not in call.args[0] for call in tx.run.call_args_list))
+
+    def test_bounds_edges_are_allowed(self):
+        tx=MagicMock()
+        tx.run.return_value.single.return_value=dict(south=10.7,north=10.9,west=106.5,east=106.7)
+        check_place_bounds(tx,dict(latitude=10.7,longitude=106.7))
 
 
 if __name__ == "__main__":

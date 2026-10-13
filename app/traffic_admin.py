@@ -12,10 +12,10 @@ from flask import Blueprint, current_app, jsonify, render_template, request, sen
 
 try:
     from .auth import AppError
-    from .place_admin import PlaceError, validate_place
+    from .place_admin import PlaceError, validate_place, check_place_bounds
 except ImportError:
     from auth import AppError
-    from place_admin import PlaceError, validate_place
+    from place_admin import PlaceError, validate_place, check_place_bounds
 
 FORMAT = 'neo4j-routing-traffic-v1'
 
@@ -155,6 +155,11 @@ def write_snapshot(tx, data, replace=False):
         tx.run('MATCH (p:Place) WHERE NOT p.placeId IN $ids DETACH DELETE p',
                ids=[p['placeId'] for p in data['places']]).consume()
     tx.run('UNWIND $rows AS row MERGE (j:Junction {junctionId: row.junctionId}) SET j = row', rows=data['junctions']).consume()
+    for place in ([] if replace else data['places']):
+        try:
+            check_place_bounds(tx, place, place['placeId'])
+        except PlaceError as error:
+            raise AppError(str(error), error.status)
     tx.run('UNWIND $rows AS row MERGE (p:Place {placeId: row.placeId}) SET p = row', rows=data['places']).consume()
     tx.run('UNWIND $rows AS row MATCH ()-[r:ROAD {roadId: row.properties.roadId}]->() DELETE r', rows=data['roads']).consume()
     tx.run("""
@@ -202,7 +207,7 @@ def register_traffic(app, driver, database):
     @app.before_request
     def traffic_lock():
         # Routing and traffic writes share a lock so GDS cannot be used mid-refresh.
-        if request.path == '/api/route' or request.path.startswith('/api/admin/traffic') or request.path.startswith('/api/admin/places') or request.path in ('/api/network', '/api/analysis'):
+        if request.path == '/api/route' or request.path.startswith('/api/admin/traffic') or request.path.startswith('/api/admin/places') or request.path in ('/api/network', '/api/analysis', '/api/explorer', '/api/analysis/details') or request.path.startswith('/api/admin/database') or request.path.startswith('/api/admin/exchange'):
             from flask import g
             lock.acquire()
             g.traffic_locked = True
@@ -221,7 +226,7 @@ def register_traffic(app, driver, database):
 
     @api.get('/admin/traffic')
     def data_page():
-        return render_template('traffic.html')
+        return render_template('data.html')
 
     @api.get('/api/network')
     def network_data():
@@ -335,33 +340,55 @@ def register_traffic(app, driver, database):
     @api.route('/api/admin/traffic/junctions', methods=['POST'])
     @api.route('/api/admin/traffic/junctions/<identity>', methods=['PUT', 'DELETE'])
     def change_junction(identity=None):
-        data = validate_junction(request.get_json(silent=True)) if request.method != 'DELETE' else None
-        jid = junction_id(identity) if identity else data['junctionId']
-        if data and data['junctionId'] != jid:
+        payload = request.get_json(silent=True)
+        if request.method != 'DELETE' and not isinstance(payload, dict):
+            raise AppError('Dữ liệu Junction không hợp lệ.')
+        data = validate_junction({**payload, 'junctionId': 1 if request.method == 'POST' else payload.get('junctionId', identity)}) if request.method != 'DELETE' else None
+        jid = junction_id(identity) if identity else None
+        if identity and data and data['junctionId'] != jid:
             raise AppError('Không thể thay đổi mã Junction khi sửa.')
         def change(tx):
-            found = tx.run('MATCH (j:Junction {junctionId: $id}) RETURN j.junctionId AS id', id=jid).single()
+            current_id = jid
+            if request.method == 'POST':
+                # Lock the counter before reading max, including IDs from imported data.
+                current_id = tx.run('''MERGE (c:AppCounter {key:'junctionId'})
+                    SET c.value = coalesce(c.value, 0) + 1
+                    WITH c OPTIONAL MATCH (j:Junction)
+                    WITH c, coalesce(max(j.junctionId), 0) + 1 AS nextId
+                    SET c.value = CASE WHEN c.value < nextId THEN nextId ELSE c.value END
+                    RETURN c.value AS id''').single()['id']
+                data['junctionId'] = junction_id(current_id)
+            found = tx.run('MATCH (j:Junction {junctionId: $id}) RETURN j.junctionId AS id', id=current_id).single()
             if request.method == 'POST' and found:
                 raise AppError('Mã Junction đã tồn tại.', 409)
             if request.method != 'POST' and not found:
                 raise AppError('Không tìm thấy Junction.', 404)
             if request.method == 'DELETE':
-                tx.run('MATCH (j:Junction {junctionId: $id}) DETACH DELETE j', id=jid).consume()
+                tx.run('MATCH (j:Junction {junctionId: $id}) DETACH DELETE j', id=current_id).consume()
             else:
-                tx.run('MERGE (j:Junction {junctionId: $id}) SET j += $props', id=jid, props=data).consume()
+                tx.run('MERGE (j:Junction {junctionId: $id}) SET j += $props', id=current_id, props=data).consume()
             relink_places(tx)
-        write(change)
-        return jsonify(message='Đã cập nhật Junction và ACCESS_TO.')
+            return current_id
+        saved_id = write(change)
+        return jsonify(message='Đã cập nhật Junction và ACCESS_TO.', junctionId=saved_id)
 
     @api.route('/api/admin/traffic/roads', methods=['POST'])
     @api.route('/api/admin/traffic/roads/<path:identity>', methods=['PUT', 'DELETE'])
     def change_road(identity=None):
-        data = validate_road(request.get_json(silent=True)) if request.method != 'DELETE' else None
-        rid = identity or data['properties']['roadId']
-        if data and data['properties']['roadId'] != rid:
+        payload = request.get_json(silent=True)
+        if request.method != 'DELETE' and (not isinstance(payload, dict) or not isinstance(payload.get('properties'), dict)):
+            raise AppError('Dữ liệu đường không hợp lệ.')
+        data = validate_road({**payload, 'properties': {**payload['properties'], 'lengthM': 0, 'roadId': 'auto' if request.method == 'POST' else payload['properties'].get('roadId', identity)}}) if request.method != 'DELETE' else None
+        rid = identity
+        if identity and data and data['properties']['roadId'] != rid:
             raise AppError('Không thể thay đổi mã đường khi sửa.')
+        if data and data['source'] == data['target']:
+            raise AppError('Junction đầu và Junction cuối không được trùng nhau.')
         def change(tx):
-            existing = tx.run('MATCH ()-[r:ROAD {roadId: $id}]->() RETURN properties(r) AS props LIMIT 1', id=rid).single()
+            current_id = rid if identity else tx.run('RETURN randomUUID() AS id').single()['id']
+            if data:
+                data['properties']['roadId'] = current_id
+            existing = tx.run('MATCH (s)-[r:ROAD {roadId: $id}]->(t) RETURN properties(r) AS props, s.junctionId AS source, t.junctionId AS target LIMIT 1', id=current_id).single()
             found = existing is not None
             if request.method == 'POST' and found:
                 raise AppError('Mã đường đã tồn tại.', 409)
@@ -373,11 +400,22 @@ def register_traffic(app, driver, database):
                 for endpoint in (data['source'], data['target']):
                     if not tx.run('MATCH (j:Junction {junctionId: $id}) RETURN j.junctionId AS id', id=endpoint).single():
                         raise AppError('Junction đầu/cuối không tồn tại.', 409)
-            tx.run('MATCH ()-[r:ROAD {roadId: $id}]->() DELETE r', id=rid).consume()
+                if existing and existing['source'] == data['source'] and existing['target'] == data['target']:
+                    data['properties']['lengthM'] = existing['props'].get('lengthM', 0)
+                else:
+                    distance = tx.run('''MATCH (s:Junction {junctionId:$source}), (t:Junction {junctionId:$target})
+                        RETURN point.distance(point({latitude:s.latitude,longitude:s.longitude}),
+                        point({latitude:t.latitude,longitude:t.longitude})) AS distance''',
+                        source=data['source'], target=data['target']).single()
+                    if not distance or distance['distance'] is None:
+                        raise AppError('Junction đầu/cuối thiếu tọa độ để tính chiều dài.')
+                    data['properties']['lengthM'] = round(number(distance['distance'], 'Chiều dài đường', 0), 2)
+            tx.run('MATCH ()-[r:ROAD {roadId: $id}]->() DELETE r', id=current_id).consume()
             if data:
                 tx.run('MATCH (s:Junction {junctionId: $source}), (t:Junction {junctionId: $target}) CREATE (s)-[r:ROAD]->(t) SET r = $props',
                        source=data['source'], target=data['target'], props=data['properties']).consume()
-        write(change)
-        return jsonify(message='Đã cập nhật đường. ROAD có hướng từ Junction đầu tới Junction cuối.')
+            return current_id
+        saved_id = write(change)
+        return jsonify(message='Đã cập nhật đường. ROAD có hướng từ Junction đầu tới Junction cuối.', roadId=saved_id)
 
     app.register_blueprint(api)

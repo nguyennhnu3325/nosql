@@ -15,6 +15,7 @@ from neo4j import GraphDatabase
 from werkzeug.security import check_password_hash
 from auth import AppError, register_auth
 from place_admin import register_place_admin
+from console import register_console, DB_FORMAT
 from traffic_admin import register_traffic, snapshot, validate_snapshot, write_snapshot
 
 
@@ -22,6 +23,9 @@ class TransactionDriver:
     """Reuse one explicit transaction across requests without committing it."""
     def __init__(self, tx):
         self.tx = tx
+
+    def verify_connectivity(self):
+        self.tx.run("RETURN 1 AS ok").consume()
 
     def session(self, **kwargs):
         return self
@@ -64,6 +68,7 @@ def main():
                 tx.run("MERGE (s:AuthState {key: 'users'}) ON CREATE SET s.revision = 0").consume()
                 register_place_admin(app, facade, 'neo4j')
                 register_traffic(app, facade, 'neo4j')
+                register_console(app, facade, 'neo4j')
                 client = app.test_client()
                 admin = store.change(dict(username='smoke_admin_20261009', displayName='Test Admin',
                                           password='test-password-123', role='admin'))
@@ -146,7 +151,39 @@ def main():
                 write_snapshot(tx, original, True)
                 after = validate_snapshot(snapshot(tx))
                 assert after == original
-                print('Neo4j integration OK: users, roles, traffic CRUD, analysis, import/export, backup/restore; all writes rolled back.')
+                explorer = check(client.get('/api/explorer'))
+                assert len(explorer['places']) == len(original['places'])
+                details = check(client.get('/api/analysis/details'))
+                assert details['accessCount'] == len(original['access'])
+                check(client.get('/admin/network'))
+                check(client.get('/admin/system'))
+                check(client.get('/admin/settings'))
+                check(client.get('/profile'))
+                check(client.get('/api/admin/system'))
+                check(client.put('/api/admin/settings',json=dict(accessWarningM=350),headers=headers))
+                assert check(client.get('/api/admin/settings'))['accessWarningM']==350
+                first = original['junctions'][0]
+                place_values=dict(name='Smoke place',category='test',latitude=first['latitude'],longitude=first['longitude'])
+                preview=check(client.post('/api/admin/place-preview',json=place_values,headers=headers))
+                assert preview['distance'] < 1
+                place=check(client.post('/api/admin/places',json=place_values,headers=headers),201)
+                place_values['latitude']=0
+                check(client.post('/api/admin/places',json=place_values,headers=headers),400)
+                check(client.delete('/api/admin/places/'+place['placeId'],headers=headers))
+                profile=check(client.put('/api/profile',json=dict(displayName='Smoke renamed'),headers=headers))
+                assert profile['displayName']=='Smoke renamed'
+                exchange=check(client.get('/api/admin/exchange/places'))
+                check(client.post('/api/admin/exchange/places',data={'file':(io.BytesIO(json.dumps(exchange).encode()),'places.json')},headers=headers))
+                saved_db=check(client.post('/api/admin/database/backups',headers=headers),201)
+                check(client.get('/api/admin/database/backups/'+saved_db['name']))
+                # Restore a tiny application DB in this explicit rollback-only transaction.
+                current=store.by_id(admin['userId'])
+                small=dict(format=DB_FORMAT,nodes=[dict(id='admin',labels=['AppUser'],properties=current),dict(id='state',labels=['AuthState'],properties=dict(key='users',revision=0)),dict(id='j',labels=['Junction'],properties=dict(junctionId=1,latitude=10.8,longitude=106.6)),dict(id='p',labels=['Place'],properties=dict(placeId='smoke-restored',name='Restored',category='test',latitude=10.8,longitude=106.6))],relationships=[dict(source='p',target='j',type='ACCESS_TO',properties=dict(accessDistanceM=0))])
+                check(client.post('/api/admin/database/restore',data={'confirm':'RESTORE','file':(io.BytesIO(json.dumps(small).encode()),'database.json')},headers=headers))
+                restored_data=check(client.get('/api/explorer'))
+                assert len(restored_data['places'])==1 and len(restored_data['access'])==1
+                assert store.by_id(admin['userId'])['sessionVersion'] > current['sessionVersion']
+                print('Neo4j integration OK: users, roles, traffic CRUD, explorer, analysis, place bounds, settings, profile, scoped import/export, database backup/restore; all writes rolled back.')
         finally:
             tx.rollback()
     driver.close()

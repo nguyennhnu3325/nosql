@@ -1,14 +1,45 @@
 <!DOCTYPE html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#17866b"><title>{% block title %}Urban Route{% endblock %}</title><link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v=3">{% block head %}{% endblock %}</head>
-<body>{% from '_icons.html' import icon %}{% include '_nav.html' %}{% set page_names = {'/':'Tìm tuyến đường', '/network':'Mạng lưới giao thông', '/analysis':'Phân tích mạng lưới', '/admin':'Quản lý địa điểm', '/admin/users':'Quản trị người dùng', '/admin/traffic':'Dữ liệu & sao lưu'} %}
-<div class="app-main"><header class="topbar"><div class="breadcrumbs"><button class="menu-toggle" id="menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-controls="sidebar" aria-expanded="false">{{ icon('menu') }}</button><span>Không gian làm việc</span><span>/</span><strong>{{ page_names.get(request.path, 'Thông báo') }}</strong></div><div class="topbar-right"><span class="workspace-badge">{{ 'Không gian quản trị' if current_user and current_user.role == 'admin' else 'Không gian cá nhân' }}</span><span class="avatar" aria-label="Tài khoản">{{ current_user.displayName[:1]|upper if current_user else 'U' }}</span></div></header>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#17866b"><title>{% block title %}Urban Route{% endblock %}</title><link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v=16">{% block head %}{% endblock %}</head>
+<body>{% from '_icons.html' import icon %}{% include '_nav.html' %}{% set page_names = {'/':'Tìm tuyến đường', '/network':'Mạng lưới giao thông', '/analysis':'Phân tích mạng lưới', '/admin':'Quản lý địa điểm', '/admin/users':'Quản lý người dùng', '/admin/traffic':'Dữ liệu và sao lưu', '/admin/network':'Quản lý mạng lưới', '/admin/system':'Trạng thái hệ thống', '/admin/settings':'Cấu hình', '/profile':'Hồ sơ'} %}
+<div class="app-main"><header class="topbar"><div class="topbar-leading"><button class="menu-toggle" id="menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-controls="sidebar" aria-expanded="false">{{ icon('menu') }}</button><nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="/">Urban Route</a></li><li aria-current="page"><h1 class="page-title">{{ page_names.get(request.path, 'Thông báo') }}</h1></li></ol></nav></div><div class="topbar-right">{% if current_user %}<details class="topbar-account" id="account-menu"><summary aria-label="Tài khoản: {{ current_user.displayName }}"><span class="avatar">{{ current_user.displayName[:1]|upper }}</span><span class="account-text"><strong>{{ current_user.displayName }}</strong><small>{{ 'Quản trị viên' if current_user.role == 'admin' else 'Người dùng' }}</small></span><span class="account-chevron" aria-hidden="true">⌄</span></summary><div class="account-dropdown"><a class="nav-link" href="/profile">{{ icon('users') }}<span>Hồ sơ</span></a><form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="nav-link nav-logout" type="submit">{{ icon('logout') }} Đăng xuất</button></form></div></details>{% else %}<a class="button secondary" href="/login">Đăng nhập</a>{% endif %}</div></header>
 <main id="main-content" class="page-content">{% block content %}{% endblock %}</main><footer class="page-footer"><span>Urban Route · Không gian kết nối giao thông</span><span>Khám phá. Phân tích. Di chuyển.</span></footer></div>
+<div id="toast-container" class="toast-container" aria-label="Thông báo"></div>
 <script>
-function message(text,error=false){const e=document.getElementById('status');if(e){e.textContent=text;e.classList.toggle('error',error);}}
+function message(text,error=false){
+  const host=document.getElementById('toast-container');
+  if(!text){host.replaceChildren();return;}
+  const toast=document.createElement('div');
+  toast.className='toast'+(error?' toast-error':'');
+  toast.setAttribute('role',error?'alert':'status');
+  const symbol=document.createElement('span');
+  symbol.className='toast-symbol';
+  symbol.textContent=error?'!':'✓';
+  symbol.setAttribute('aria-hidden','true');
+  const content=document.createElement('span');
+  content.className='toast-content';
+  content.textContent=text;
+  const close=document.createElement('button');
+  close.type='button';
+  close.className='toast-close';
+  close.setAttribute('aria-label','Đóng thông báo');
+  close.textContent='×';
+  let timer;
+  const dismiss=()=>{clearTimeout(timer);toast.remove();};
+  const schedule=()=>{clearTimeout(timer);timer=setTimeout(dismiss,error?8000:4500);};
+  close.addEventListener('click',dismiss);
+  toast.addEventListener('mouseenter',()=>clearTimeout(timer));
+  toast.addEventListener('mouseleave',()=>{if(!toast.contains(document.activeElement))schedule();});
+  toast.addEventListener('focusin',()=>clearTimeout(timer));
+  toast.addEventListener('focusout',event=>{if(!toast.contains(event.relatedTarget))schedule();});
+  toast.append(symbol,content,close);
+  while(host.children.length>=3)host.firstElementChild.remove();
+  host.append(toast);
+  schedule();
+}
 async function api(url,options={}){const response=await fetch(url,options);let data;try{data=await response.json();}catch{throw new Error('Máy chủ trả về dữ liệu không hợp lệ.');}if(!response.ok)throw new Error(data.error||'Thao tác thất bại.');return data;}
 function cell(row,value){const td=row.insertCell();td.textContent=value??'';return td;}
 function jsonOptions(method,data){return {method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)};}
 function renderMetrics(id,items){const host=document.getElementById(id);host.replaceChildren();for(const [label,value] of items){const box=document.createElement('div');box.className='metric';const title=document.createElement('span');title.textContent=label;const number=document.createElement('strong');number.textContent=Number(value).toLocaleString('vi-VN');box.append(title,number);host.append(box);}}
 function badge(text,style=''){const span=document.createElement('span');span.className='badge '+style;span.textContent=text;return span;}
 (() => {const toggle=document.getElementById('menu-toggle'), sidebar=document.getElementById('sidebar'),overlay=document.getElementById('sidebar-overlay');function open(value){sidebar.classList.toggle('is-open',value);overlay.classList.toggle('is-open',value);toggle.setAttribute('aria-expanded',String(value));toggle.setAttribute('aria-label',value?'Đóng menu điều hướng':'Mở menu điều hướng');document.body.style.overflow=value?'hidden':'';if(value)sidebar.querySelector('a[aria-current]')?.focus();}toggle.addEventListener('click',()=>open(!sidebar.classList.contains('is-open')));overlay.addEventListener('click',()=>open(false));document.addEventListener('keydown',e=>{if(e.key==='Escape'&&sidebar.classList.contains('is-open')){open(false);toggle.focus();}});window.matchMedia('(min-width:761px)').addEventListener('change',e=>{if(e.matches)open(false);});})();
-</script>{% block scripts %}{% endblock %}</body></html>
+</script><script>(()=>{const menu=document.getElementById('account-menu');if(!menu)return;document.addEventListener('click',e=>{if(!menu.contains(e.target))menu.open=false;});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}});})();</script><script src="{{ url_for('static',filename='confirmations.js') }}?v=1"></script>{% block scripts %}{% endblock %}</body></html>

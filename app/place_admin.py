@@ -40,7 +40,24 @@ RETURN p.placeId AS placeId, p.name AS name, p.category AS category,
 """
 
 
+def check_place_bounds(tx, values, existing_id=None):
+    bounds = tx.run("""MATCH (j:Junction) WHERE j.latitude IS NOT NULL AND j.longitude IS NOT NULL
+        RETURN min(toFloat(j.latitude)) AS south, max(toFloat(j.latitude)) AS north,
+               min(toFloat(j.longitude)) AS west, max(toFloat(j.longitude)) AS east""").single()
+    if not bounds or bounds['south'] is None:
+        raise PlaceError('Chưa có mạng Junction hợp lệ.', 409)
+    if not (bounds['south'] <= values['latitude'] <= bounds['north'] and
+            bounds['west'] <= values['longitude'] <= bounds['east']):
+        # Historical Places may already lie outside the current network. Allow
+        # unchanged coordinates, but never add or move a Place outside its bounds.
+        existing = tx.run('MATCH (p:Place {placeId:$id}) RETURN p.latitude AS latitude,p.longitude AS longitude',id=existing_id).single() if existing_id else None
+        if existing and existing['latitude']==values['latitude'] and existing['longitude']==values['longitude']:
+            return
+        raise PlaceError('Place nằm ngoài phạm vi dữ liệu Junction. Hãy chọn vị trí trong vùng mạng lưới.')
+
+
 def save_place(tx, place_id, values, creating):
+    check_place_bounds(tx, values, place_id if not creating else None)
     if not creating:
         record = tx.run("""
             MATCH (p:Place {placeId: $placeId})
@@ -99,7 +116,7 @@ def register_place_admin(app, driver, database):
 
     @admin.route("/admin")
     def page():
-        return render_template("admin.html")
+        return render_template("manage.html", kind="places")
 
     @admin.route("/api/admin/places", methods=["GET"])
     def list_places():

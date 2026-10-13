@@ -6,11 +6,13 @@ if __package__:
     from .auth import register_auth
     from .traffic_admin import register_traffic
     from .routing import register_routing
+    from .console import register_console
 else:
     from place_admin import register_place_admin
     from auth import register_auth
     from traffic_admin import register_traffic
     from routing import register_routing
+    from console import register_console
 
 import osmnx as ox
 
@@ -366,6 +368,7 @@ def get_places():
 
 
 register_routing(app, driver, NEO4J_DATABASE, ensure_road_graph, build_route_geometry)
+register_console(app, driver, NEO4J_DATABASE)
 
 
 # =========================================================

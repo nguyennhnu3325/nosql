@@ -1,0 +1,13 @@
+{
+  "boundaryRelation": 6846128,
+  "scope": "Former Tan Phu district, Ho Chi Minh City",
+  "networkType": "drive",
+  "retainDisconnected": true,
+  "boundaryEdgesIncluded": true,
+  "junctions": 3012,
+  "roads": 7306,
+  "newPlaces": 150,
+  "existingPlaces": 53,
+  "source": "https://www.openstreetmap.org/relation/6846128",
+  "preparedAt": "2026-10-13T11:10:45.159299+00:00"
+}
