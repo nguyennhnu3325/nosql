@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Tuyến đã lưu{% endblock %}
+{% block head %}<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="{{ url_for('static',filename='profile.css') }}?v=2"><style>.history-page-size{display:flex;align-items:center;gap:10px}.history-page-size label{margin:0;white-space:nowrap}.history-page-size select{width:80px}.grid-toolbar{margin-bottom:18px}</style>{% endblock %}
+{% block content %}
+<section class="card" id="saved-list-page">
+<div class="dialog-heading"><h2>Danh sách tuyến đã lưu</h2><button type="button" class="secondary" id="history-refresh">Tải lại</button></div>
+<div class="grid-toolbar">
+<div class="grid-search"><label for="history-search">Tìm kiếm</label><input type="search" id="history-search" placeholder="Tên điểm đi hoặc điểm đến…"></div>
+<div><label for="history-from">Từ ngày</label><input type="date" id="history-from"></div>
+<div><label for="history-to">Đến ngày</label><input type="date" id="history-to"></div>
+
+</div>
+
+<div class="scroll data-grid"><table><thead><tr><th>STT</th><th>Ngày lưu</th><th>Điểm đi</th><th>Điểm đến</th><th>Khoảng cách</th><th>Thao tác</th></tr></thead><tbody id="route-history"><tr><td colspan="6">Đang tải tuyến đã lưu…</td></tr></tbody></table></div>
+<div class="pagination"><span id="history-count" role="status"></span><div class="actions"><div class="history-page-size"><label for="history-size">Số dòng / trang</label><select id="history-size"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select></div><button type="button" class="secondary" id="history-prev">← Trước</button><span id="history-page"></span><button type="button" class="secondary" id="history-next">Sau →</button></div></div>
+</section>
+<dialog id="history-dialog" class="profile-dialog"><div class="dialog-heading"><h2 id="history-title">Chi tiết lịch sử</h2><button type="button" class="secondary" id="close-history">Đóng</button></div><div id="history-content"></div><div id="history-map" style="height:350px" hidden></div></dialog>
+{% endblock %}
+{% block scripts %}<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="{{ url_for('static',filename='map-background.js') }}?v=4"></script><script src="{{ url_for('static',filename='profile.js') }}?v=5"></script>{% endblock %}

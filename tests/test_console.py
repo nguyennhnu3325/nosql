@@ -59,6 +59,50 @@ class ConsoleTests(unittest.TestCase):
             with self.subTest(path=path):self.assertEqual(self.client.get(path).status_code,403)
         self.assertEqual(self.client.get('/profile').status_code,200)
 
+    def test_history_page_available_to_user_and_requires_login(self):
+        from profile_features import register_profile_features
+        register_profile_features(self.app,self.driver,'neo4j')
+        self.user['role']='user'
+        response=self.client.get('/history')
+        self.assertEqual(response.status_code,200)
+        html=response.get_data(as_text=True)
+        self.assertIn('Danh sách lịch sử tìm đường',html)
+        self.assertIn('id="history-search"',html)
+        self.assertIn('id="history-prev"',html)
+        self.assertNotIn('href="/network"',html)
+        with self.client.session_transaction() as session:session.clear()
+        self.assertEqual(self.client.get('/history').status_code,302)
+        self.assertEqual(self.client.get('/api/profile/activity').status_code,401)
+
+    def test_saved_routes_page_available_to_user_and_requires_login(self):
+        from profile_features import register_profile_features
+        register_profile_features(self.app,self.driver,'neo4j')
+        self.user['role']='user'
+        response=self.client.get('/saved-routes')
+        self.assertEqual(response.status_code,200)
+        html=response.get_data(as_text=True)
+        self.assertIn('id="saved-list-page"',html)
+        self.assertIn('id="history-search"',html)
+        self.assertIn('id="history-prev"',html)
+        self.assertNotIn('href="/network"',html)
+        with self.client.session_transaction() as session:session.clear()
+        self.assertEqual(self.client.get('/saved-routes').status_code,302)
+
+    def test_network_pages_and_apis_are_admin_only(self):
+        self.user['role']='user'
+        for path in ['/network','/analysis','/analysis?view=summary','/api/network','/api/analysis','/api/explorer','/api/analysis/details']:
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code,403)
+        self.db.execute_read.assert_not_called()
+        page=self.client.get('/profile').get_data(as_text=True)
+        self.assertNotIn('href="/network"',page)
+        self.assertNotIn('href="/analysis"',page)
+        self.assertIn('href="/history"',page)
+        self.assertIn('href="/saved-routes"',page)
+        self.user['role']='admin'
+        for path in ['/network','/analysis']:
+            self.assertEqual(self.client.get(path).status_code,200)
+
     def test_csrf_enforced_on_new_writes(self):
         for path in ['/api/admin/users/u1/reset-password','/api/admin/database/restore','/api/admin/exchange/places','/api/admin/place-preview']:
             self.assertEqual(self.client.post(path).status_code,403)

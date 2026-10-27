@@ -4,7 +4,7 @@
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
 <aside class="sidebar" id="sidebar" aria-label="Thanh điều hướng">
 <a class="brand" href="/"><span class="brand-mark">{{ icon('network') }}</span><span>Urban Route<span class="brand-sub">MOBILITY WORKSPACE</span></span></a>
-<nav aria-label="Điều hướng chính"><div class="nav-caption">KHÁM PHÁ</div><div class="nav-list">{{ nav_link('/', 'Tìm tuyến đường', 'route') }}{{ nav_link('/network', 'Mạng lưới giao thông', 'network') }}{{ nav_link('/analysis', 'Phân tích mạng lưới', 'chart') }}</div>
+<nav aria-label="Điều hướng chính"><div class="nav-caption">KHÁM PHÁ</div><div class="nav-list">{{ nav_link('/', 'Tìm tuyến đường', 'route') }}{{ nav_link('/history', 'Xem lịch sử', 'route') }}{{ nav_link('/saved-routes', 'Tuyến đã lưu', 'pin') }}{% if current_user and current_user.role == 'admin' %}{{ nav_link('/network', 'Mạng lưới giao thông', 'network') }}{{ nav_link('/analysis', 'Phân tích mạng lưới', 'chart') }}{% endif %}</div>
 {% if current_user and current_user.role == 'admin' %}<div class="nav-caption">QUẢN TRỊ</div><div class="nav-list">{{ nav_link('/admin', 'Địa điểm', 'pin') }}{{ nav_link('/admin/network', 'Quản lý mạng lưới', 'network') }}{{ nav_link('/admin/users', 'Người dùng', 'users') }}{{ nav_link('/admin/traffic', 'Dữ liệu & sao lưu', 'data') }}</div>{% endif %}</nav>
 </aside>
 <script>

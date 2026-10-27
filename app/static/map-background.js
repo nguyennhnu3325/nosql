@@ -1,6 +1,7 @@
 /* Keep Leaflet aligned with responsive layouts and report failed background tiles. */
 window.attachMapBackground=function(map){
  const container=map.getContainer();
+ if(window.profileMapStyle==='grayscale')map.getPane('tilePane').style.filter='grayscale(1)';
  const notice=document.createElement('div');notice.className='map-load-status';notice.hidden=true;notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
  const label=document.createElement('span'),retry=document.createElement('button');retry.type='button';retry.className='secondary';retry.textContent='Tải lại nền bản đồ';notice.append(label,retry);container.before(notice);
  const failed=new Set();let frame=0,observer=null,lastWidth=0,lastHeight=0;

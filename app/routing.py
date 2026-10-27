@@ -114,6 +114,17 @@ def register_routing(app, driver, database, ensure_graph, geometry):
                       alternativeCount=len(routes) - 1)
         result['alternativeMessage'] = (f'Tìm được {len(routes)-1} tuyến thay thế.' if len(routes) > 1
             else ('Không tìm thấy tuyến thay thế khác trong các tuyến được xét.' if count else ''))
+        recorder = app.extensions.get('record_profile_activity')
+        if recorder:
+            from flask import g
+            user = app.extensions['auth_store'].by_id(g.user['userId'])
+            speed = user.get('estimatedSpeedKmh', 30)
+            if not isinstance(speed, (int, float)) or isinstance(speed, bool) or not math.isfinite(speed) or not 1 <= speed <= 120:
+                speed = 30
+            minutes = round(routes[0]['totalDistanceM'] / 1000 / speed * 60, 1)
+            result['historyId'] = recorder('route', dict(routes=routes, estimatedMinutes=minutes, estimatedSpeedKmh=speed))
+            result['estimatedMinutes'] = minutes
+            result['estimatedSpeedKmh'] = speed
         return jsonify(result)
 
     app.register_blueprint(routing)

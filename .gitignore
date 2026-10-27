@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 .env
 .vscode/
+
+# Local session secrets
+instance/
+.env.*
+!.env.example
+
+# Local database backups
+backups/

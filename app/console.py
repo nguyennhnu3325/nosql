@@ -8,14 +8,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 from flask import Blueprint, jsonify, render_template, request, g, session, send_file
+from neo4j.exceptions import ConstraintError
 from werkzeug.security import check_password_hash, generate_password_hash
 try:
     from .network_analysis import analyze_network
+    from .user_exchange import export_users, validate_user_rows, import_users
     from .auth import AppError, public_user
     from .place_admin import validate_place, save_place, PlaceError, check_place_bounds
     from .traffic_admin import snapshot, write_snapshot, validate_junction, validate_road, properties, relink_places
 except ImportError:
     from network_analysis import analyze_network
+    from user_exchange import export_users, validate_user_rows, import_users
     from auth import AppError, public_user
     from place_admin import validate_place, save_place, PlaceError, check_place_bounds
     from traffic_admin import snapshot, write_snapshot, validate_junction, validate_road, properties, relink_places
@@ -138,7 +141,11 @@ def register_console(app, driver, database):
                 roads=[dict(r) for r in tx.run('MATCH (s:Junction)-[r:ROAD]->(t:Junction) RETURN s.junctionId AS source, t.junctionId AS target, elementId(s) AS sourceKey, elementId(t) AS targetKey, properties(r) AS properties')],
                 access=[dict(r) for r in tx.run('MATCH (p:Place)-[r:ACCESS_TO]->(j:Junction) RETURN p.placeId AS placeId, j.junctionId AS junctionId, elementId(p) AS placeKey, elementId(j) AS junctionKey, properties(r) AS properties')])
         data = read(analysis_snapshot)
-        return jsonify(network=analyze_network(data, settings()['accessWarningM']))
+        network = analyze_network(data, settings()['accessWarningM'])
+        recorder = app.extensions.get('record_profile_activity')
+        if recorder:
+            recorder('analysis', {key: network[key] for key in ('overview','length','degree','connectivity') if key in network})
+        return jsonify(network=network)
 
     @bp.get('/api/admin/settings')
     def get_settings(): return jsonify(settings())
@@ -214,7 +221,27 @@ def register_console(app, driver, database):
 
     @bp.route('/api/admin/exchange/<kind>',methods=['GET','POST'])
     def exchange(kind):
-        if kind not in ('places','junctions','roads'): raise AppError('Loại dữ liệu không hợp lệ.',404)
+        if kind not in ('places','junctions','roads','users'): raise AppError('Loại dữ liệu không hợp lệ.',404)
+        if kind == 'users':
+            if request.method == 'GET':
+                result = jsonify(format='urban-route-users-v1', rows=read(export_users))
+                result.headers['Content-Disposition'] = 'attachment; filename="users.json"'
+                result.headers['Cache-Control'] = 'no-store'
+                return result
+            file = request.files.get('file')
+            if not file: raise AppError('Hãy chọn tệp JSON.')
+            try: data = json.load(file.stream)
+            except (ValueError, UnicodeError): raise AppError('Tệp JSON không hợp lệ.')
+            if not isinstance(data, dict) or data.get('format') != 'urban-route-users-v1':
+                raise AppError('Tệp không đúng mẫu Export người dùng.')
+            rows, hashes = validate_user_rows(data.get('rows'), request.form.get('initialPassword', ''))
+            saved = save_backup()
+            try:
+                counts = write(lambda tx: import_users(tx, rows, hashes, g.user['userId']), invalidate=False)
+            except ConstraintError:
+                raise AppError('Tên đăng nhập đã tồn tại hoặc dữ liệu vừa thay đổi. Hãy tải lại và thử lại.', 409)
+            session['version'] = app.extensions['auth_store'].by_id(g.user['userId'])['sessionVersion']
+            return jsonify(message='Đã nhập người dùng: ' + str(counts['created']) + ' mới, ' + str(counts['updated']) + ' cập nhật, ' + str(counts['unchanged']) + ' không đổi.', backup=saved, **counts)
         if request.method=='GET':
             data=read(snapshot)
             rows=data[kind]

@@ -369,6 +369,11 @@ def get_places():
 
 register_routing(app, driver, NEO4J_DATABASE, ensure_road_graph, build_route_geometry)
 register_console(app, driver, NEO4J_DATABASE)
+if __package__:
+    from .profile_features import register_profile_features
+else:
+    from profile_features import register_profile_features
+register_profile_features(app, driver, NEO4J_DATABASE)
 
 
 # =========================================================

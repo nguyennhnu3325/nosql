@@ -21,7 +21,7 @@ class AppError(Exception):
 
 
 def public_user(user):
-    return {key: user.get(key) for key in ('userId', 'username', 'displayName', 'role', 'active')}
+    return {key: user.get(key) for key in ('userId', 'username', 'displayName', 'role', 'active', 'avatar', 'mapStyle', 'estimatedSpeedKmh')}
 
 
 def validate_user(data, creating=False):
@@ -109,6 +109,7 @@ class AuthStore:
                 if actor_id == user_id and (delete or not values['active'] or values['role'] != 'admin'):
                     raise AppError('Không thể tự xóa, khóa hoặc hạ quyền tài khoản đang đăng nhập.', 409)
             if delete:
+                tx.run('MATCH (:AppUser {userId:$id})-[:HAS_ACTIVITY|SAVED_ROUTE]->(n) WHERE n:ProfileActivity OR n:ProfileSavedRoute DETACH DELETE n', id=user_id).consume()
                 tx.run('MATCH (u:AppUser {userId: $id}) DETACH DELETE u', id=user_id).consume()
                 return None
             duplicate = tx.run('MATCH (u:AppUser {username: $name}) WHERE $id IS NULL OR u.userId <> $id RETURN u.userId AS id LIMIT 1',
@@ -188,7 +189,10 @@ def register_auth(app, driver, database):
             if request.path.startswith('/api/'):
                 return jsonify(error='Vui lòng đăng nhập.'), 401
             return redirect(url_for('auth.login'))
-        if (request.path.startswith('/admin') or request.path.startswith('/api/admin/')) and (not g.user or g.user['role'] != 'admin'):
+        admin_network = request.path in (
+            '/network', '/analysis', '/api/network', '/api/analysis',
+            '/api/explorer', '/api/analysis/details')
+        if (request.path.startswith('/admin') or request.path.startswith('/api/admin/') or admin_network) and (not g.user or g.user['role'] != 'admin'):
             raise AppError('Bạn không có quyền quản trị.', 403)
         if request.method not in ('GET', 'HEAD', 'OPTIONS'):
             supplied = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token', '')
